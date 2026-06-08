@@ -105,3 +105,40 @@ if selected_id is not None:
         st.plotly_chart(fig)
 else:
     st.info("No flight selected yet. Upload a CSV to see flight telemetry.")
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("Admin")
+
+# initialize state
+if "confirm_clear" not in st.session_state:
+    st.session_state.confirm_clear = False
+
+# Step 1: click clear
+if st.sidebar.button("🗑️ Clear Database"):
+    st.session_state.confirm_clear = True
+
+# Step 2: confirmation UI
+if st.session_state.confirm_clear:
+
+    st.sidebar.warning("Are you sure? This will delete ALL data.")
+
+    col1, col2 = st.sidebar.columns(2)
+
+    with col1:
+        if st.button("✓ Confirm"):
+            try:
+                cursor.execute("DELETE FROM telemetry")
+                cursor.execute("DELETE FROM flights")
+                conn.commit()
+
+                st.sidebar.success("Database cleared!")
+                st.session_state.confirm_clear = False
+                st.rerun()
+
+            except Exception as e:
+                st.sidebar.error(f"Error: {e}")
+
+    with col2:
+        if st.button("✗ Cancel"):
+            st.session_state.confirm_clear = False
+            st.rerun()
