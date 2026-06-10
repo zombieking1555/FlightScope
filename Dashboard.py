@@ -36,7 +36,9 @@ flights = pd.read_sql_query(
 )
 
 
-st.title("FlightScope")
+st.title("FlightScope Dashboard")
+
+
 selected_id = None
 if len(flights) > 0:
     selected_id = st.selectbox(
