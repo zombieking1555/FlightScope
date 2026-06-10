@@ -4,6 +4,10 @@ import plotly.express as px
 from pathlib import Path 
 from datetime import datetime
 import sqlite3
+from create_db import ensure_db
+
+# Ensure the database file and tables exist before connecting
+ensure_db()
 
 conn = sqlite3.connect("flights.db")
 cursor = conn.cursor()
@@ -41,11 +45,16 @@ st.title("FlightScope Dashboard")
 
 selected_id = None
 if len(flights) > 0:
-    selected_id = st.selectbox(
-        "Choose Flight",
-        flights["id"],
-        format_func=lambda flight_id: flights.loc[flights["id"] == flight_id, "filename"].iloc[0],
-    )
+    # Create a mapping once
+    flight_name_map = dict(zip(flights["id"], flights["filename"]))
+
+    selected_id = None
+    if len(flights) > 0:
+        selected_id = st.selectbox(
+            "Choose Flight",
+            flights["id"],
+            format_func=lambda flight_id: flight_name_map[flight_id],
+        )
 else:
     st.info("First, upload a flight CSV.")
 
@@ -75,6 +84,7 @@ if uploaded_file is not None:
             )
             flight_id = cursor.lastrowid
             for _, row in df.iterrows():
+                assert flight_id is not None
                 cursor.execute(
                     "INSERT INTO telemetry (flight_id, time, altitude, velocity) VALUES (?, ?, ?, ?)",
                     (int(flight_id), float(row["time"]), float(row["altitude"]), float(row["velocity"]))

@@ -5,6 +5,11 @@ from pathlib import Path
 from datetime import datetime
 import sqlite3
 
+from create_db import ensure_db
+
+# Ensure the database file and tables exist before connecting
+ensure_db()
+
 conn = sqlite3.connect("flights.db")
 cursor = conn.cursor()
 
