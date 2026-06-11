@@ -121,6 +121,14 @@ if selected_id is not None:
             cols_to_convert.append("acceleration")
         df[cols_to_convert] = df[cols_to_convert].astype(float)
 
+        launch_idx = df[df["acceleration"] > 15].index[0]
+
+        launch_time = float(df.loc[df["acceleration"] > 15, "time"].iloc[0])
+
+        df = df[df["time"] >= launch_time]
+        df["time"] = df["time"].astype(float)
+        df["time"] -= launch_time
+
         st.write(df.head())
 
         # Calculate burnout if acceleration data is available
