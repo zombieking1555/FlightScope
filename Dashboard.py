@@ -97,6 +97,8 @@ if uploaded_file is not None:
             flights = pd.read_sql_query("SELECT id, filename FROM flights", conn)
 
 burnout = None
+apogee = None
+apogee_idx = None
 
 if selected_id is not None:
     df = pd.read_sql_query(
@@ -133,7 +135,11 @@ if selected_id is not None:
                 burnout = df["time"].iloc[burnout_idx]
         
 
-
+        # Calculate apogee if altitude data is available
+        if "altitude" in df.columns:
+            # idxmax() returns the index label; keep it as-is for .loc
+            apogee_idx = df["altitude"].idxmax()
+            apogee = df["altitude"].max()
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=df["time"], y=df["altitude"], mode="lines", name="Altitude"))
         fig.update_layout(title="Altitude vs Time", xaxis_title="Time", yaxis_title="Altitude")
@@ -141,11 +147,15 @@ if selected_id is not None:
             idx = (df["time"] - burnout).abs().idxmin()
             burnout_altitude = df.loc[idx, "altitude"]
             fig.add_trace(go.Scatter(x=[burnout], y=[burnout_altitude], mode="markers", name="Motor Burnout", marker=dict(size=12)))
+        if apogee is not None:
+            assert apogee_idx is not None
+            apogee_time = df.loc[apogee_idx, "time"]
+            fig.add_trace(go.Scatter(x=[apogee_time], y=[apogee], mode="markers", name="Apogee", marker=dict(size=12)))
         st.plotly_chart(fig)
 else:
     st.info("No flight selected yet. Upload a CSV to see flight telemetry.")
 
-st.sidebar.markdown("---")
+
 st.sidebar.subheader("Admin")
 
 # initialize state
