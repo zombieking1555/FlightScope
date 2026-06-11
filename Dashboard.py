@@ -1,6 +1,7 @@
 import pandas as pd
+import numpy as np
 import streamlit as st
-import plotly.express as px
+import plotly.graph_objects as go
 from pathlib import Path 
 from datetime import datetime
 import sqlite3
@@ -28,7 +29,8 @@ CREATE TABLE IF NOT EXISTS telemetry (
     flight_id INTEGER,
     time REAL,
     altitude REAL,
-    velocity REAL
+    velocity REAL,
+    acceleration REAL
 )
 """)
 
@@ -85,13 +87,16 @@ if uploaded_file is not None:
             flight_id = cursor.lastrowid
             for _, row in df.iterrows():
                 assert flight_id is not None
+                accel = float(row["acceleration"]) if "acceleration" in df.columns and pd.notna(row["acceleration"]) else None
                 cursor.execute(
-                    "INSERT INTO telemetry (flight_id, time, altitude, velocity) VALUES (?, ?, ?, ?)",
-                    (int(flight_id), float(row["time"]), float(row["altitude"]), float(row["velocity"]))
+                    "INSERT INTO telemetry (flight_id, time, altitude, velocity, acceleration) VALUES (?, ?, ?, ?, ?)",
+                    (int(flight_id), float(row["time"]), float(row["altitude"]), float(row["velocity"]), accel)
                 )
             conn.commit()
             selected_id = flight_id
             flights = pd.read_sql_query("SELECT id, filename FROM flights", conn)
+
+burnout = None
 
 if selected_id is not None:
     df = pd.read_sql_query(
@@ -109,11 +114,33 @@ if selected_id is not None:
         st.info("Selected flight has no telemetry.")
     else:
         # ensure numeric native types for plotting/serialization
-        df[["time", "altitude", "velocity"]] = df[["time", "altitude", "velocity"]].astype(float)
+        cols_to_convert = ["time", "altitude", "velocity"]
+        if "acceleration" in df.columns:
+            cols_to_convert.append("acceleration")
+        df[cols_to_convert] = df[cols_to_convert].astype(float)
 
         st.write(df.head())
 
-        fig = px.line(df, x="time", y="altitude", title="Altitude vs Time")
+        # Calculate burnout if acceleration data is available
+        burnout = None
+        if "acceleration" in df.columns:
+            accel = np.asarray(df["acceleration"].values, dtype=float)
+            # Burnout detected at maximum negative jerk (steepest drop in acceleration)
+            # This is the transition from boost phase to coast phase
+            jerk = np.diff(accel)
+            burnout_idx = np.argmin(jerk)  # Index of maximum negative jerk
+            if burnout_idx > 0 and jerk[burnout_idx] < -0.5:  # Ensure significant drop
+                burnout = df["time"].iloc[burnout_idx]
+        
+
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=df["time"], y=df["altitude"], mode="lines", name="Altitude"))
+        fig.update_layout(title="Altitude vs Time", xaxis_title="Time", yaxis_title="Altitude")
+        if burnout is not None:
+            idx = (df["time"] - burnout).abs().idxmin()
+            burnout_altitude = df.loc[idx, "altitude"]
+            fig.add_trace(go.Scatter(x=[burnout], y=[burnout_altitude], mode="markers", name="Motor Burnout", marker=dict(size=12)))
         st.plotly_chart(fig)
 else:
     st.info("No flight selected yet. Upload a CSV to see flight telemetry.")
