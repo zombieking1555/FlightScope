@@ -137,7 +137,7 @@ def generate_flight(seed, apogee_target):
 flights = [
     ("test_data/flight_1.csv", 260),
     ("test_data/flight_2.csv", 230),
-    ("test_data/flight_3.csv", 300),
+    ("test_data/flight_3.csv", 100),
 ]
 
 

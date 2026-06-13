@@ -99,6 +99,8 @@ if uploaded_file is not None:
 burnout = None
 apogee = None
 apogee_idx = None
+parachute = None
+parachute_idx = None
 
 if selected_id is not None:
     df = pd.read_sql_query(
@@ -140,7 +142,7 @@ if selected_id is not None:
             >=50
         )
 
-        land_idx = int(sustained[sustained].index[0])-50
+        land_idx = int(sustained[sustained].index[0])-49 # manually offset to get first index of lower velocity (actual landing)
         land_time = float(df.iloc[land_idx]["time"])
         print(f"Detected landing at index {land_idx} time {land_time:.2f}s")
 
@@ -149,8 +151,7 @@ if selected_id is not None:
 
         st.write(df.head())
 
-        # Calculate burnout if acceleration data is available
-        burnout = None
+        # Calculate burnout and parachute deployment if acceleration data is available
         if "acceleration" in df.columns:
             accel = np.asarray(df["acceleration"].values, dtype=float)
             # Burnout detected at maximum negative jerk (steepest drop in acceleration)
@@ -160,6 +161,11 @@ if selected_id is not None:
             if burnout_idx > 0 and jerk[burnout_idx] < -0.5:  # Ensure significant drop
                 burnout = df["time"].iloc[burnout_idx]
 
+            # Parachute deployment detected at maximum positive jerk (steepest rise in acceleration)
+            # This is the transition from coast phase to descent phase
+            parachute_idx = np.argmax(jerk)  # Index of maximum positive jerk
+            if parachute_idx > 0 and jerk[parachute_idx] > 0.5:  # Ensure significant rise
+                parachute = df["time"].iloc[parachute_idx]
 
         # Calculate apogee if altitude data is available
         if "altitude" in df.columns:
@@ -177,7 +183,10 @@ if selected_id is not None:
             assert apogee_idx is not None
             apogee_time = df.loc[apogee_idx, "time"]
             fig.add_trace(go.Scatter(x=[apogee_time], y=[apogee], mode="markers", name="Apogee", marker=dict(size=12)))
-     
+        if parachute is not None:
+            idx = (df["time"] - parachute).abs().idxmin()
+            parachute_altitude = df.loc[idx, "altitude"]
+            fig.add_trace(go.Scatter(x=[parachute], y=[parachute_altitude], mode="markers", name="Parachute Deploy", marker=dict(size=12)))
             
         fig.add_trace(go.Scatter(x=[land_time], y=[0], mode="markers", name="Landing", marker=dict(size=12)))
 
