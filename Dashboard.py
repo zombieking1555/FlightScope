@@ -125,9 +125,27 @@ if selected_id is not None:
 
         launch_time = float(df.loc[df["acceleration"] > 15, "time"].iloc[0])
 
-        df = df[df["time"] >= launch_time]
+        df = df[df["time"] >= launch_time].reset_index(drop=True)
         df["time"] = df["time"].astype(float)
         df["time"] -= launch_time
+
+        mask = (
+            (df.index > launch_idx) & 
+            (df["velocity"].abs() < 0.5) 
+        )
+
+        sustained = (
+            mask.rolling(window=50)
+            .sum()
+            >=50
+        )
+
+        land_idx = int(sustained[sustained].index[0])-50
+        land_time = float(df.iloc[land_idx]["time"])
+        print(f"Detected landing at index {land_idx} time {land_time:.2f}s")
+
+        df = df[df["time"] <= land_time]
+        df["time"] = df["time"].astype(float)
 
         st.write(df.head())
 
@@ -141,7 +159,7 @@ if selected_id is not None:
             burnout_idx = np.argmin(jerk)  # Index of maximum negative jerk
             if burnout_idx > 0 and jerk[burnout_idx] < -0.5:  # Ensure significant drop
                 burnout = df["time"].iloc[burnout_idx]
-        
+
 
         # Calculate apogee if altitude data is available
         if "altitude" in df.columns:
@@ -159,6 +177,10 @@ if selected_id is not None:
             assert apogee_idx is not None
             apogee_time = df.loc[apogee_idx, "time"]
             fig.add_trace(go.Scatter(x=[apogee_time], y=[apogee], mode="markers", name="Apogee", marker=dict(size=12)))
+     
+            
+        fig.add_trace(go.Scatter(x=[land_time], y=[0], mode="markers", name="Landing", marker=dict(size=12)))
+
         st.plotly_chart(fig)
 else:
     st.info("No flight selected yet. Upload a CSV to see flight telemetry.")
