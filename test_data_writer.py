@@ -9,102 +9,135 @@ output_dir.mkdir(exist_ok=True)
 def generate_flight(seed, apogee_target):
     np.random.seed(seed)
 
-    dt = 0.005  # 200 Hz
+    dt = 0.01  # 100 Hz
 
-    # Long idle period before launch
-    pre_launch_time = 15
-    flight_time = 20
-
-    t = np.arange(0, pre_launch_time + flight_time, dt)
-
-    altitude = np.zeros_like(t)
-    velocity = np.zeros_like(t)
-    acceleration = np.zeros_like(t)
+    pre_launch_time = 5.0
+    post_landing_time = 28.0
 
     burn_time = 1.8
-    coast_end = 6.0
-    transition_time = 0.2
+    parachute_delay = 3.0
+    parachute_terminal_vel = -5.0
 
-    for i in range(1, len(t)):
-        # Time relative to launch
-        time = t[i] - pre_launch_time
+    g = 9.81
 
-        # PRE-LAUNCH IDLE
-        if time < 0:
-            accel = np.random.normal(0, 0.05)
+    def simulate_with_boost(a_boost):
+        # returns apogee and full traces until landing
+        t_list = []
+        alt = []
+        vel = []
+        acc = []
 
-        # BOOST PHASE
-        elif time < burn_time - transition_time / 2:
-            accel = 60 + np.random.normal(0, 2)
+        # pre-launch
+        t = 0.0
+        while t < pre_launch_time:
+            t_list.append(t)
+            alt.append(0.0)
+            vel.append(0.0)
+            acc.append(np.random.normal(0, 0.02))
+            t += dt
 
-        # BOOST TO COAST TRANSITION
-        elif time < burn_time + transition_time / 2:
-            boost_accel = 60 + np.random.normal(0, 2)
-            coast_accel = -9.8 + np.random.normal(0, 0.3)
+        # boost
+        boost_steps = int(np.ceil(burn_time / dt))
+        for _ in range(boost_steps):
+            t_list.append(t)
+            a_net = a_boost - g + np.random.normal(0, 0.5)
+            acc.append(a_net)
+            prev_v = vel[-1]
+            v = prev_v + a_net * dt
+            prev_h = alt[-1]
+            h = prev_h + v * dt
+            vel.append(v)
+            alt.append(h)
+            t += dt
 
-            alpha = (
-                time - (burn_time - transition_time / 2)
-            ) / transition_time
+        # coast/free-fall until parachute deploy and landing
+        apogee = -1.0
+        apogee_time = None
+        parachute_deployed = False
 
-            accel = boost_accel * (1 - alpha) + coast_accel * alpha
+        while True:
+            t_list.append(t)
+            if not parachute_deployed:
+                a_now = -g + np.random.normal(0, 0.1)
+            else:
+                # controller to terminal
+                a_now = 1.2 * (parachute_terminal_vel - vel[-1]) + np.random.normal(0, 0.1)
+            acc.append(a_now)
+            v = vel[-1] + a_now * dt
+            h = alt[-1] + v * dt
+            vel.append(v)
+            alt.append(h)
 
-        # COAST PHASE
-        elif time < coast_end - transition_time / 2:
-            accel = -9.8 + np.random.normal(0, 0.3)
+            # detect apogee
+            if apogee_time is None and vel[-2] > 0 and vel[-1] <= 0:
+                apogee_time = t
+                apogee = alt[-1]
 
-        # COAST TO DESCENT TRANSITION
-        elif time < coast_end + transition_time / 2:
-            coast_accel = -9.8 + np.random.normal(0, 0.3)
-            descent_accel = -9.8 + np.random.normal(0, 0.2)
+            # deploy parachute after delay from apogee
+            if (apogee_time is not None) and (not parachute_deployed) and (t >= apogee_time + parachute_delay):
+                parachute_deployed = True
 
-            alpha = (
-                time - (coast_end - transition_time / 2)
-            ) / transition_time
+            # landing
+            if h <= 0 and t > pre_launch_time:
+                # mark landing properly
+                alt[-1] = 0.0
+                vel[-1] = 0.0
+                acc[-1] = np.random.normal(0, 0.02)
+                t += dt
+                break
 
-            accel = coast_accel * (1 - alpha) + descent_accel * alpha
+            # safety cutoff
+            if t > 300:
+                break
 
-        # DESCENT PHASE
+            t += dt
+
+        # post landing idle
+        for _ in range(int(np.ceil(post_landing_time / dt))):
+            t_list.append(t)
+            alt.append(0.0)
+            vel.append(0.0)
+            acc.append(np.random.normal(0, 0.02))
+            t += dt
+
+        return apogee, np.array(t_list), np.array(alt), np.array(vel), np.array(acc)
+
+    # tune a_boost with a simple binary search to reach apogee_target
+    lo = 5.0
+    hi = 200.0
+    target = apogee_target
+    best = None
+    for _ in range(12):
+        mid = 0.5 * (lo + hi)
+        apogee, t_arr, alt_arr, vel_arr, acc_arr = simulate_with_boost(mid)
+        if apogee is None:
+            apogee = 0.0
+        # adjust
+        if apogee < target:
+            lo = mid
         else:
-            accel = -9.8 + np.random.normal(0, 0.2)
+            hi = mid
+        best = (apogee, t_arr, alt_arr, vel_arr, acc_arr)
 
-        acceleration[i] = accel
+    # use best result
+    assert best is not None
+    apogee, t_arr, alt_arr, vel_arr, acc_arr = best
 
-        # Only allow the rocket to move after launch
-        velocity[i] = velocity[i - 1] + accel * dt
-        altitude[i] = altitude[i - 1] + velocity[i] * dt
-
-        # Prevent the rocket from going below the launch pad
-        if altitude[i] < 0:
-            altitude[i] = 0
-            velocity[i] = 0
-
-    # Smooth acceleration to imitate filtered sensor data
-    window_size = 11
-    acceleration = (
-        pd.Series(acceleration)
-        .rolling(window=window_size, center=True, min_periods=1)
-        .mean()
-        .values
-    )
-
-    # Scale flight to desired apogee
-    altitude_scale = apogee_target / max(altitude.max(), 1)
-
-    altitude *= altitude_scale
-    velocity *= altitude_scale
+    # smooth acceleration
+    acc_sm = pd.Series(acc_arr).rolling(window=5, center=True, min_periods=1).mean().values
 
     return pd.DataFrame({
-        "time": t,
-        "altitude": altitude,
-        "velocity": velocity,
-        "acceleration": acceleration
+        "time": t_arr,
+        "altitude": alt_arr,
+        "velocity": vel_arr,
+        "acceleration": acc_sm,
     })
 
 
 flights = [
     ("test_data/flight_1.csv", 260),
     ("test_data/flight_2.csv", 230),
-    ("test_data/flight_3.csv", 300)
+    ("test_data/flight_3.csv", 300),
 ]
 
 
