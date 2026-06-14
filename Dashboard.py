@@ -123,13 +123,14 @@ if selected_id is not None:
             cols_to_convert.append("acceleration")
         df[cols_to_convert] = df[cols_to_convert].astype(float)
 
-        launch_idx = df[df["acceleration"] > 15].index[0]
+        
 
         launch_time = float(df.loc[df["acceleration"] > 15, "time"].iloc[0])
 
         df = df[df["time"] >= launch_time].reset_index(drop=True)
         df["time"] = df["time"].astype(float)
         df["time"] -= launch_time
+        launch_idx = df[df["acceleration"] > 15].index[0]
 
         mask = (
             (df.index > launch_idx) & 
@@ -142,9 +143,16 @@ if selected_id is not None:
             >=50
         )
 
-        land_idx = int(sustained[sustained].index[0])-49 # manually offset to get first index of lower velocity (actual landing)
-        land_time = float(df.iloc[land_idx]["time"])
-        print(f"Detected landing at index {land_idx} time {land_time:.2f}s")
+        land_idx = None
+        land_candidates = sustained[sustained].index
+        if len(land_candidates) == 0:
+            land_time = float(df["time"].iloc[-1])
+        else:
+            land_idx = int(land_candidates[0]) - 49
+            if land_idx < 0:
+                land_idx = 0
+            land_time = float(df.iloc[land_idx]["time"])
+            print(f"Detected landing at index {land_idx} time {land_time:.2f}s")
 
         df = df[df["time"] <= land_time]
         df["time"] = df["time"].astype(float)
@@ -179,16 +187,25 @@ if selected_id is not None:
             idx = (df["time"] - burnout).abs().idxmin()
             burnout_altitude = df.loc[idx, "altitude"]
             fig.add_trace(go.Scatter(x=[burnout], y=[burnout_altitude], mode="markers", name="Motor Burnout", marker=dict(size=12)))
+        else:
+            st.warning("Could not detect motor burnout from acceleration data.")
         if apogee is not None:
             assert apogee_idx is not None
             apogee_time = df.loc[apogee_idx, "time"]
             fig.add_trace(go.Scatter(x=[apogee_time], y=[apogee], mode="markers", name="Apogee", marker=dict(size=12)))
+        else:
+            st.warning("Could not detect apogee from altitude data.")
         if parachute is not None:
             idx = (df["time"] - parachute).abs().idxmin()
             parachute_altitude = df.loc[idx, "altitude"]
             fig.add_trace(go.Scatter(x=[parachute], y=[parachute_altitude], mode="markers", name="Parachute Deploy", marker=dict(size=12)))
-            
-        fig.add_trace(go.Scatter(x=[land_time], y=[0], mode="markers", name="Landing", marker=dict(size=12)))
+        else:
+            st.warning("Could not detect parachute deployment from acceleration data.")
+
+        if land_idx is not None:
+            fig.add_trace(go.Scatter(x=[land_time], y=[0], mode="markers", name="Landing", marker=dict(size=12)))
+        else:
+            st.warning("Could not detect landing from velocity data.")
 
         st.plotly_chart(fig)
 else:
