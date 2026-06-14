@@ -91,7 +91,7 @@ The application automatically converts and cleans supported flight log formats b
 
 ## License
 
-This project is currently unlicensed and intended for personal and educational use.
+This project is currently licensed under the MIT License. See `LICENSE.md` for details.
 
 ---
 
