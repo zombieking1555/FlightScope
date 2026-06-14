@@ -1,5 +1,7 @@
 # FlightScope
 
+![FlightScope Banner](assets/FlightScopeBanner.png)
+
 FlightScope is a Python application designed to analyze and visualize model rocket flight data. It provides tools for importing flight logs, processing telemetry, detecting key flight events, and displaying flight performance through an interactive dashboard.
 
 ## Features
