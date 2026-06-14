@@ -74,7 +74,7 @@ if uploaded_file is not None:
         df = pd.read_csv(io.StringIO("\n".join(cleaned)))
 
         df.columns = df.columns.str.replace("#", "").str.strip()
-        print(df.columns)
+        
         df = df.rename(
             columns={
                 "Time (s)": "time",
@@ -181,7 +181,7 @@ if selected_id is not None:
             if land_idx < 0:
                 land_idx = 0
             land_time = float(df.iloc[land_idx]["time"])
-            print(f"Detected landing at index {land_idx} time {land_time:.2f}s")
+            
 
         df = df[df["time"] <= land_time]
         df["time"] = df["time"].astype(float)
