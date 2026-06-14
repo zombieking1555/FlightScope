@@ -87,6 +87,7 @@ The application automatically converts and cleans supported flight log formats b
 * Improved flight event detection algorithms
 * Flight profile simulations
 * Exporting and sharing flight reports
+* Unit support with unit detection from CSV flight files
 
 ## License
 
