@@ -61,12 +61,19 @@ uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
 if uploaded_file is not None:
     st.info(f"Ready to import {uploaded_file.name}. Click Import to add.")
     if st.button("Import CSV"):
-        df = pd.read_csv(uploaded_file)
-        df.columns = (
-            df.columns
-            .str.replace("#", "", regex=False)
-            .str.strip()
-        )   
+        lines = uploaded_file.getvalue().decode("utf-8").splitlines()
+
+        # Keep the header line that starts with "# Time"
+        cleaned = []
+        for line in lines:
+            if line.startswith("#") and not line.startswith("# Time"):
+                continue
+            cleaned.append(line)
+
+        import io
+        df = pd.read_csv(io.StringIO("\n".join(cleaned)))
+
+        df.columns = df.columns.str.replace("#", "").str.strip()
         print(df.columns)
         df = df.rename(
             columns={
