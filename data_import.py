@@ -2,40 +2,42 @@ import pandas as pd
 import io
 from datetime import datetime
 
-def clean_csv(uploaded_file):
+
+def clean_raw_csv(uploaded_file):
     lines = uploaded_file.getvalue().decode("utf-8").splitlines()
 
     cleaned = []
     for line in lines:
-        if line.startswith("#") and not line.startswith("# Time"):
+        # remove comment lines except header
+        if line.startswith("#"):
+            # Remove leading "#" from header line and keep it
+            if line.startswith("# Time"):
+                cleaned.append(line[2:].strip())  # Remove "# " prefix
+            # Skip all other comment lines
             continue
         cleaned.append(line)
 
     df = pd.read_csv(io.StringIO("\n".join(cleaned)))
 
-    df.columns = df.columns.str.replace("#", "").str.strip()
-
-    df = df.rename(
-        columns={
-            "Time (s)": "time",
-            "Altitude (m)": "altitude",
-            "Vertical velocity (m/s)": "velocity",
-            "Vertical acceleration (m/s²)": "acceleration",
-        }
-    )
-
-    required = ["time", "altitude", "velocity"]
-
-    if not all(c in df.columns for c in required):
-        raise ValueError("CSV missing required columns")
-
-    df[required] = df[required].apply(pd.to_numeric, errors="coerce")
-
-    if df[required].isnull().any().any():
-        raise ValueError("Non-numeric values in required columns")
+    # ONLY light cleanup here
+    df.columns = df.columns.str.strip()
 
     return df
 
+
+def normalize_columns(df):
+    df = df.rename(columns={
+        "Time (s)": "time",
+        "Altitude (m)": "altitude",
+        "Altitude (ft)": "altitude",
+        "Vertical velocity (m/s)": "velocity",
+        "Vertical velocity (ft/s)": "velocity",
+        "Vertical acceleration (m/s²)": "acceleration",
+        "Vertical acceleration (ft/s²)": "acceleration",
+        "Vertical acceleration (G)": "acceleration",
+    })
+
+    return df
 
 def insert_flight(conn, df, filename):
     cursor = conn.cursor()

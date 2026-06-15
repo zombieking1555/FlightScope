@@ -5,7 +5,6 @@ import plotly.graph_objects as go
 import sqlite3
 
 from db import get_connection
-from data_import import clean_csv, insert_flight
 
 # ----------------------------
 # DB SETUP
@@ -56,27 +55,7 @@ if len(flights) > 0:
         index=0 if selected_id is None else list(flights["id"]).index(selected_id),
     )
 else:
-    st.info("First, upload a flight CSV.")
-
-# ----------------------------
-# UPLOAD SECTION
-# ----------------------------
-uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
-
-if uploaded_file is not None:
-    st.info(f"Ready to import {uploaded_file.name}. Click Import to add.")
-
-    if st.button("Import CSV"):
-        try:
-            df = clean_csv(uploaded_file)
-            flight_id = insert_flight(conn, df, uploaded_file.name)
-
-            st.session_state["selected_id"] = flight_id
-            st.success(f"Imported flight {flight_id}")
-            st.rerun()
-
-        except Exception as e:
-            st.error(str(e))
+    st.info("First, upload a flight CSV under the Upload Flight tab.")
 
 # ----------------------------
 # TELEMETRY LOADING
@@ -101,16 +80,34 @@ if selected_id is not None:
     df = df.astype(float, errors="ignore")
 
     # ----------------------------
-    # FLIGHT FILTERING
+    # FLIGHT FILTERING (robust)
     # ----------------------------
-    launch_time = float(df.loc[df["acceleration"] > 15, "time"].iloc[0])
+    # Try to find a clear launch acceleration spike. Prefer >15 m/s^2,
+    # fall back to >5 m/s^2, otherwise use the first telemetry row.
+    launch_idx_candidates = df.index[df["acceleration"] > 15].tolist()
+    threshold = 15
+    if not launch_idx_candidates:
+        launch_idx_candidates = df.index[df["acceleration"] > 5].tolist()
+        threshold = 5
+
+    if not launch_idx_candidates:
+        st.warning("Launch acceleration spike not found; using first telemetry time as launch.")
+        launch_idx_original = 0
+    else:
+        launch_idx_original = int(launch_idx_candidates[0])
+
+    # use positional indexing since launch_idx_original is a row position
+    launch_time = float(df.iloc[launch_idx_original]["time"])
 
     df = df[df["time"] >= launch_time].reset_index(drop=True)
     df["time"] -= launch_time
 
-    launch_idx = df[df["acceleration"] > 15].index[0]
+    # Recompute launch index relative to the filtered/reset dataframe
+    rel_candidates = df.index[df["acceleration"] > threshold].tolist()
+    launch_idx = int(rel_candidates[0]) if rel_candidates else 0
 
-    mask = (df.index > launch_idx) & (df["velocity"].abs() < 0.5)
+    # make mask a Series (aligned with dataframe) to avoid type/alignment issues
+    mask = pd.Series(df.index > launch_idx, index=df.index) & (df["velocity"].abs() < 0.5)
     sustained = mask.rolling(window=50).sum() >= 50
 
     land_candidates = sustained[sustained].index
