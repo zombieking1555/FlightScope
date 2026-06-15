@@ -56,7 +56,7 @@ Then open the local URL shown in your terminal to access the dashboard.
 
 ## Project Structure
 
-```
+```text
 FlightScope/
 │
 ├── Dashboard.py         # Main dashboard and flight visualization
