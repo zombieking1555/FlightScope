@@ -23,7 +23,11 @@ def ensure_db(path: Path = Path("flights.db")) -> None:
         time REAL,
         altitude REAL,
         velocity REAL,
-        acceleration REAL
+        acceleration REAL,
+        roll_rate REAL,
+        pitch_rate REAL,
+        yaw_rate REAL,
+        vertical_orientation REAL
     )
     """)
 

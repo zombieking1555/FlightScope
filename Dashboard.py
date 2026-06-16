@@ -30,7 +30,11 @@ CREATE TABLE IF NOT EXISTS telemetry (
     time REAL,
     altitude REAL,
     velocity REAL,
-    acceleration REAL
+    acceleration REAL,
+    roll_rate REAL,
+    pitch_rate REAL,
+    yaw_rate REAL,
+    vertical_orientation REAL
 )
 """)
 
@@ -148,6 +152,10 @@ if selected_id is not None:
     # ----------------------------
     vel_fig = go.Figure()
     alt_fig = go.Figure()
+    roll_fig = go.Figure()
+    pitch_fig = go.Figure()
+    yaw_fig = go.Figure()
+    orient_fig = go.Figure()
 
     vel_fig.add_trace(go.Scatter(
         x=df["time"], y=df["velocity"],
@@ -159,8 +167,32 @@ if selected_id is not None:
         mode="lines", name="Altitude"
     ))
 
+    roll_fig.add_trace(go.Scatter(
+        x=df["time"], y=df["roll_rate"],
+        mode="lines", name="Roll Rate"
+    ))
+
+    pitch_fig.add_trace(go.Scatter(
+        x=df["time"], y=df["pitch_rate"],
+        mode="lines", name="Pitch Rate"
+    ))
+
+    yaw_fig.add_trace(go.Scatter(
+        x=df["time"], y=df["yaw_rate"],
+        mode="lines", name="Yaw Rate"
+    ))
+
+    orient_fig.add_trace(go.Scatter(
+        x=df["time"], y=df["vertical_orientation"],
+        mode="lines", name="Vertical Orientation"
+    ))
+
     vel_fig.update_layout(title="Velocity vs Time")
     alt_fig.update_layout(title="Altitude vs Time")
+    roll_fig.update_layout(title="Roll Rate vs Time")
+    pitch_fig.update_layout(title="Pitch Rate vs Time")
+    yaw_fig.update_layout(title="Yaw Rate vs Time")
+    orient_fig.update_layout(title="Vertical Orientation vs Time")
 
     # Burnout marker
     if burnout is not None:
@@ -181,6 +213,15 @@ if selected_id is not None:
             marker=dict(size=12),
             name="Burnout"
         ))
+        
+        orient_fig.add_trace(go.Scatter(
+            x=[burnout],
+            y=[df.loc[idx, "vertical_orientation"]],
+            mode="markers",
+            marker=dict(size=12),
+            name="Burnout"
+        ))
+        
     else:
         st.warning("Burnout time could not be determined from acceleration data.")
 
@@ -203,6 +244,14 @@ if selected_id is not None:
         name="Apogee"
     ))
 
+    orient_fig.add_trace(go.Scatter(
+        x=[apogee_time],
+        y=[df.loc[apogee_idx, "vertical_orientation"]],
+        mode="markers",
+        marker=dict(size=12),
+        name="Apogee"
+    ))
+
     # Parachute marker
     if parachute is not None:
         idx = (df["time"] - parachute).abs().idxmin()
@@ -218,6 +267,14 @@ if selected_id is not None:
         alt_fig.add_trace(go.Scatter(
             x=[parachute],
             y=[df.loc[idx, "altitude"]],
+            mode="markers",
+            marker=dict(size=12),
+            name="Parachute"
+        ))
+        
+        orient_fig.add_trace(go.Scatter(
+            x=[parachute],
+            y=[df.loc[idx, "vertical_orientation"]],
             mode="markers",
             marker=dict(size=12),
             name="Parachute"
@@ -249,6 +306,9 @@ if selected_id is not None:
 
     st.plotly_chart(alt_fig)
     st.plotly_chart(vel_fig)
+    st.plotly_chart(pitch_fig)
+    st.plotly_chart(yaw_fig)
+    st.plotly_chart(orient_fig)
 
 else:
     st.info("No flight selected yet. Upload a CSV to see telemetry.")
