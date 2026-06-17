@@ -8,6 +8,9 @@ import pyvista as pv
 from scipy.spatial.transform import Rotation
 from db import get_connection
 
+HIGH_SKY = np.array([36, 47, 72])      # #242F48
+GROUND_SKY = np.array([135, 206, 235]) # #87CEEB
+
 # ----------------------------
 # PV RENDER
 # ----------------------------
@@ -55,7 +58,13 @@ def render_frame(zenith, azimuth, altitude):
 
     ground = pv.Plane(center=(0, 0, -0.01), direction=(0, 0, 1), i_size=10, j_size=10)
     plotter = pv.Plotter(off_screen=True)
-    plotter.set_background("#242F48") # type: ignore
+
+    t = min(altitude/300, 1)
+    sky_color = (1 - t) * GROUND_SKY + t * HIGH_SKY
+    sky_color = sky_color.astype(int)
+    background = "#{:02x}{:02x}{:02x}".format(*sky_color) 
+
+    plotter.set_background(background) # type: ignore
     plotter.add_mesh(ground, color="#3C8B5A")
     plotter.add_mesh(rocket, color="#943012")
 
