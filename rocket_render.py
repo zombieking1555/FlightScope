@@ -34,6 +34,7 @@ def render_rocket():
     st.image("assets/rocket.png", caption="Rocket Visualization")
     
 
+
 def render_frame(zenith, azimuth, altitude):
     # Convert zenith and azimuth to x,y,z using elevation measured from horizontal
     x = np.cos(np.radians(zenith)) * np.cos(np.radians(azimuth))
@@ -42,7 +43,7 @@ def render_frame(zenith, azimuth, altitude):
     direction = np.array([x, y, z])
     direction /= np.linalg.norm(direction)
     body_axis = np.array([0, 0, 1])
-    rotation, _ = Rotation.align_vectors(
+    rotation, _ = Rotation.align_vectors( # type: ignore
         [body_axis],
         [direction]
     )
@@ -69,7 +70,7 @@ def render_frame(zenith, azimuth, altitude):
     plotter.add_mesh(rocket, color="#943012")
 
     rocket_center = np.array([0.0, 0.0, altitude])
-    plotter.camera_position = [
+    plotter.camera_position = [ # type: ignore
         rocket_center + np.array([0.0, -.5, 2]),
         rocket_center + np.array([0.0, 0.0, -0.5]),
         (0, 0, 1),
