@@ -38,7 +38,8 @@ def normalize_columns(df):
         "Roll rate (r/s)": "roll_rate",
         "Pitch rate (r/s)": "pitch_rate",
         "Yaw rate (r/s)": "yaw_rate",
-        "Vertical orientation (zenith) (°)": "vertical_orientation"
+        "Vertical orientation (zenith) (°)": "zenith",
+        "Lateral orientation (azimuth) (°)": "azimuth",
     })
 
     return df
@@ -72,15 +73,13 @@ def insert_flight(conn, df, filename):
 
     for _, row in df.iterrows():
         accel = float(row["acceleration"]) if "acceleration" in df.columns and pd.notna(row["acceleration"]) else None
-        roll_rate = float(row["roll_rate"]) if "roll_rate" in df.columns and pd.notna(row["roll_rate"]) else None
-        yaw_rate = float(row["yaw_rate"]) if "yaw_rate" in df.columns and pd.notna(row["yaw_rate"]) else None
-        pitch_rate = float(row["pitch_rate"]) if "pitch_rate" in df.columns and pd.notna(row["pitch_rate"]) else None
-        vert_ori = float(row["vertical_orientation"]) if "vertical_orientation" in df.columns and pd.notna(row["vertical_orientation"]) else None
+        zenith = float(row["zenith"]) if "zenith" in df.columns and pd.notna(row["zenith"]) else None
+        azimuth = float(row["azimuth"]) if "azimuth" in df.columns and pd.notna(row["azimuth"]) else None
 
         cursor.execute(
             """
-            INSERT INTO telemetry (flight_id, time, altitude, velocity, acceleration, roll_rate, yaw_rate, pitch_rate, vertical_orientation)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO telemetry (flight_id, time, altitude, velocity, acceleration, zenith, azimuth)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 flight_id,
@@ -88,10 +87,8 @@ def insert_flight(conn, df, filename):
                 float(row["altitude"]),
                 float(row["velocity"]),
                 accel,
-                roll_rate,
-                yaw_rate,
-                pitch_rate,
-                vert_ori
+                zenith,
+                azimuth
             ),
         )
 
