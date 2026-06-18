@@ -35,6 +35,36 @@ def render_rocket():
     
 
 
+def render_frame_alt_only(altitude):
+   
+    body = pv.Cylinder(center=(0, 0, 0), direction=(0, 0, 1), radius=0.1, height=1.0)
+    nose = pv.Cone(center=(0, 0, 0.65), direction=(0, 0, 1), height=0.3, radius=0.1, resolution=100)
+    rocket = body + nose
+    rocket.translate((0, 0, altitude), inplace=True)
+
+    ground = pv.Plane(center=(0, 0, -0.01), direction=(0, 0, 1), i_size=10, j_size=10)
+    plotter = pv.Plotter(off_screen=True)
+
+    t = min(altitude/300, 1)
+    sky_color = (1 - t) * GROUND_SKY + t * HIGH_SKY
+    sky_color = sky_color.astype(int)
+    background = "#{:02x}{:02x}{:02x}".format(*sky_color) 
+
+    plotter.set_background(background) # type: ignore
+    plotter.add_mesh(ground, color="#3C8B5A")
+    plotter.add_mesh(rocket, color="#943012")
+
+    rocket_center = np.array([0.0, 0.0, altitude])
+    plotter.camera_position = [ # type: ignore
+        rocket_center + np.array([0.0, -.5, 2]),
+        rocket_center + np.array([0.0, 0.0, -0.5]),
+        (0, 0, 1),
+    ]
+
+    img = plotter.screenshot(return_img=True)
+    plotter.close()
+    return img
+
 def render_frame(zenith, azimuth, altitude):
     # Convert zenith and azimuth to x,y,z using elevation measured from horizontal
     x = np.cos(np.radians(zenith)) * np.cos(np.radians(azimuth))

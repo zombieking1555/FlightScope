@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import sqlite3
 import pyvista as pv
 
-from rocket_render import render_rocket, render_frame
+from rocket_render import render_frame_alt_only, render_rocket, render_frame
 from db import get_connection
 
 
@@ -149,6 +149,7 @@ if selected_id is not None:
     if parachute_idx > 0 and jerk[parachute_idx] > 0.5:
         parachute = df["time"].iloc[parachute_idx]
 
+    has_zenith = "zenith" in df.columns and not df["zenith"].isna().all()
     # ----------------------------
     # PLOTTING
     # ----------------------------
@@ -166,10 +167,11 @@ if selected_id is not None:
         mode="lines", name="Altitude"
     ))
 
-    zenith_fig.add_trace(go.Scatter(
-        x=df["time"], y=df["zenith"],
-        mode="lines", name="zenith"
-    ))
+    if has_zenith:
+        zenith_fig.add_trace(go.Scatter(
+            x=df["time"], y=df["zenith"],
+            mode="lines", name="zenith"
+        ))
 
     vel_fig.update_layout(title="Velocity vs Time")
     alt_fig.update_layout(title="Altitude vs Time")
@@ -195,13 +197,14 @@ if selected_id is not None:
             name="Burnout"
         ))
         
-        zenith_fig.add_trace(go.Scatter(
-            x=[burnout],
-            y=[df.loc[idx, "zenith"]],
-            mode="markers",
-            marker=dict(size=12),
-            name="Burnout"
-        ))
+        if has_zenith:
+            zenith_fig.add_trace(go.Scatter(
+                x=[burnout],
+                y=[df.loc[idx, "zenith"]],
+                mode="markers",
+                marker=dict(size=12),
+                name="Burnout"
+            ))
         
     else:
         st.warning("Burnout time could not be determined from acceleration data.")
@@ -225,13 +228,14 @@ if selected_id is not None:
         name="Apogee"
     ))
 
-    zenith_fig.add_trace(go.Scatter(
-        x=[apogee_time],
-        y=[df.loc[apogee_idx, "zenith"]],
-        mode="markers",
-        marker=dict(size=12),
+    if has_zenith:
+        zenith_fig.add_trace(go.Scatter(
+            x=[apogee_time],
+            y=[df.loc[apogee_idx, "zenith"]],
+            mode="markers",
+            marker=dict(size=12),
         name="Apogee"
-    ))
+        ))
 
     # Parachute marker
     if parachute is not None:
@@ -253,13 +257,14 @@ if selected_id is not None:
             name="Parachute"
         ))
         
-        zenith_fig.add_trace(go.Scatter(
-            x=[parachute],
-            y=[df.loc[idx, "zenith"]],
-            mode="markers",
-            marker=dict(size=12),
-            name="Parachute"
-        ))
+        if has_zenith:
+            zenith_fig.add_trace(go.Scatter(
+                x=[parachute],
+                y=[df.loc[idx, "zenith"]],
+                mode="markers",
+                marker=dict(size=12),
+                name="Parachute"
+            ))
     else:
         st.warning("Parachute deployment time could not be determined from acceleration data.")
 
@@ -287,7 +292,8 @@ if selected_id is not None:
 
     st.plotly_chart(alt_fig)
     st.plotly_chart(vel_fig)
-    st.plotly_chart(zenith_fig)
+    if has_zenith:
+        st.plotly_chart(zenith_fig)
 
     # ----------------------------
     # ROCKET RENDER FRAME
@@ -298,22 +304,30 @@ if selected_id is not None:
         "Frame",
         min_value=0,
         max_value=len(df) - 1,
-        value=0
+        value=0,
+        step=int(len(df)/500) if len(df) > 500 else 1
     )
 
     row = df.iloc[frame]
-    zenith = row["zenith"]
-    azimuth = row["azimuth"]
-    altitude = row["altitude"]
+    zenith = row.get("zenith", default=None)
+    azimuth = row.get("azimuth", default=None)
+    altitude = row.get("altitude", default=None)
+    img = None 
 
-    img = render_frame(
-        zenith=zenith,
-        azimuth=azimuth,
-        altitude=altitude
+    if pd.isna(zenith) or pd.isna(azimuth) or pd.isna(altitude):
+        st.warning("Zenith, azimuth, or altitude data missing for this frame - rendering altitude-only view.")
+        img = render_frame_alt_only(altitude=altitude if not pd.isna(altitude) else 0)
+    else:
+        img = render_frame(
+            zenith=zenith,
+            azimuth=azimuth,
+            altitude=altitude
     )
     if img is not None:
         st.image(img)
         st.metric("Time", f"{row['time']:.2f} s")
+
+    if not pd.isna(zenith) and not pd.isna(azimuth) and not pd.isna(altitude):
         st.metric("Altitude", f"{row['altitude']:.1f} m")
         st.metric("Zenith", f"{row['zenith']:.1f}°")
         st.metric("Azimuth", f"{row['azimuth']:.1f}°")
