@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 import numpy as np
 import streamlit as st
@@ -5,6 +7,7 @@ import plotly.graph_objects as go
 import sqlite3
 import pyvista as pv
 
+from mp4_tool import create_mp4
 from rocket_render import render_frame_alt_only, render_rocket, render_frame
 from db import get_connection
 
@@ -298,42 +301,120 @@ if selected_id is not None:
     # ----------------------------
     # ROCKET RENDER FRAME
     # ----------------------------
-    max_time = float(df["time"].max())
+    # ----------------------------
+    # ROCKET RENDER FRAME
+    # ----------------------------
 
-    frame = st.slider(
-        "Frame",
-        min_value=0,
-        max_value=len(df) - 1,
-        value=0,
-        step=int(len(df)/500) if len(df) > 500 else 1
-    )
+    TARGET_FRAMES = 500
 
-    row = df.iloc[frame]
-    zenith = row.get("zenith", default=None)
-    azimuth = row.get("azimuth", default=None)
-    altitude = row.get("altitude", default=None)
-    img = None 
+    if "cached_flight" not in st.session_state:
+        st.session_state.cached_flight = None
 
-    if pd.isna(zenith) or pd.isna(azimuth) or pd.isna(altitude):
-        st.warning("Zenith, azimuth, or altitude data missing for this frame - rendering altitude-only view.")
-        img = render_frame_alt_only(altitude=altitude if not pd.isna(altitude) else 0)
-    else:
-        img = render_frame(
-            zenith=zenith,
-            azimuth=azimuth,
-            altitude=altitude
-    )
-    if img is not None:
+    if "frame_cache" not in st.session_state:
+        st.session_state.frame_cache = []
+
+    if "render_df" not in st.session_state:
+        st.session_state.render_df = None
+
+
+    def build_render_df(df, target_frames=TARGET_FRAMES):
+        if len(df) <= target_frames:
+            return df.reset_index(drop=True)
+
+        indices = np.linspace(
+            0,
+            len(df) - 1,
+            target_frames,
+            dtype=int
+        )
+
+        return df.iloc[indices].reset_index(drop=True)
+
+
+    # Rebuild cache when flight changes
+    if st.session_state.cached_flight != selected_id:
+
+        st.session_state.cached_flight = selected_id
+        st.session_state.render_df = build_render_df(df)
+        st.session_state.frame_cache = []
+
+        render_df = st.session_state.render_df
+
+        progress = st.progress(0, text="Rendering flight frames...")
+
+        for i, (_, row) in enumerate(render_df.iterrows()):
+
+            zenith = row.get("zenith", None)
+            azimuth = row.get("azimuth", None)
+            altitude = row.get("altitude", None)
+
+            if pd.isna(zenith) or pd.isna(azimuth) or pd.isna(altitude):
+                img = render_frame_alt_only(
+                    altitude=altitude if not pd.isna(altitude) else 0
+                )
+            else:
+                img = render_frame(
+                    zenith=zenith,
+                    azimuth=azimuth,
+                    altitude=altitude,
+                )
+
+            st.session_state.frame_cache.append(img)
+
+            progress.progress(
+                (i + 1) / len(render_df),
+                text=f"Rendering frame {i + 1}/{len(render_df)}"
+            )
+
+        progress.empty()
+
+        st.session_state.video_path = create_mp4(
+            st.session_state.frame_cache,
+            f"cache/flight_{selected_id}.mp4",
+            fps=30
+        )
+
+        st.write(st.session_state.video_path)
+        st.write(os.path.exists(st.session_state.video_path))
+
+        if os.path.exists(st.session_state.video_path):
+            st.write(os.path.getsize(st.session_state.video_path))
+
+
+    render_df = st.session_state.render_df
+    frame_cache = st.session_state.frame_cache
+
+    tab1, tab2 = st.tabs(["Video", "Frame Viewer"])
+
+    with tab1:
+        st.video(st.session_state.video_path)
+
+    with tab2:
+    
+        frame = st.slider(
+            "Frame",
+            min_value=0,
+            max_value=len(frame_cache) - 1,
+            value=0,
+        )
+        assert render_df is not None
+        row = render_df.iloc[frame]
+        img = frame_cache[frame]
         st.image(img)
+
         st.metric("Time", f"{row['time']:.2f} s")
 
-    if not pd.isna(zenith) and not pd.isna(azimuth) and not pd.isna(altitude):
-        st.metric("Altitude", f"{row['altitude']:.1f} m")
-        st.metric("Zenith", f"{row['zenith']:.1f}°")
-        st.metric("Azimuth", f"{row['azimuth']:.1f}°")
+        if not pd.isna(row.get("altitude", None)):
+            st.metric("Altitude", f"{row['altitude']:.1f} m")
+
+        if not pd.isna(row.get("zenith", None)):
+            st.metric("Zenith", f"{row['zenith']:.1f}°")
+
+        if not pd.isna(row.get("azimuth", None)):
+            st.metric("Azimuth", f"{row['azimuth']:.1f}°")
         
     
-else:
+else:  
     st.info("No flight selected yet. Upload a CSV to see telemetry.")
 
 

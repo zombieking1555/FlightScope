@@ -5,3 +5,4 @@ plotly==6.8.0
 numpy==2.4.6
 pyvista==0.48.4
 scipy==1.17.1
+opencv-python==4.13.0.92
