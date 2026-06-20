@@ -385,9 +385,9 @@ if selected_id is not None:
 
         progress.empty()
 
-    st.session_state.video_path = create_mp4(
-        st.session_state.frame_cache, f"cache/flight_{selected_id}.mp4", fps=30
-    )
+        st.session_state.video_path = create_mp4(
+            st.session_state.frame_cache, f"cache/flight_{selected_id}.mp4", fps=30
+        )
 
     render_df = st.session_state.render_df
     frame_cache = st.session_state.frame_cache
