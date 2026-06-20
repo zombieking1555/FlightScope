@@ -11,8 +11,6 @@ from mp4_tool import create_mp4
 from rocket_render import render_frame_alt_only, render_rocket, render_frame
 from db import get_connection
 
-
-
 # ----------------------------
 # DB SETUP
 # ----------------------------
@@ -100,7 +98,9 @@ if selected_id is not None:
         threshold = 5
 
     if not launch_idx_candidates:
-        st.warning("Launch acceleration spike not found; using first telemetry time as launch.")
+        st.warning(
+            "Launch acceleration spike not found; using first telemetry time as launch."
+        )
         launch_idx_original = 0
     else:
         launch_idx_original = int(launch_idx_candidates[0])
@@ -116,7 +116,9 @@ if selected_id is not None:
     launch_idx = int(rel_candidates[0]) if rel_candidates else 0
 
     # make mask a Series (aligned with dataframe) to avoid type/alignment issues
-    mask = pd.Series(df.index > launch_idx, index=df.index) & (df["velocity"].abs() < 0.5)
+    mask = pd.Series(df.index > launch_idx, index=df.index) & (
+        df["velocity"].abs() < 0.5
+    )
     sustained = mask.rolling(window=50).sum() >= 50
 
     land_candidates = sustained[sustained].index
@@ -160,21 +162,18 @@ if selected_id is not None:
     alt_fig = go.Figure()
     zenith_fig = go.Figure()
 
-    vel_fig.add_trace(go.Scatter(
-        x=df["time"], y=df["velocity"],
-        mode="lines", name="Velocity"
-    ))
+    vel_fig.add_trace(
+        go.Scatter(x=df["time"], y=df["velocity"], mode="lines", name="Velocity")
+    )
 
-    alt_fig.add_trace(go.Scatter(
-        x=df["time"], y=df["altitude"],
-        mode="lines", name="Altitude"
-    ))
+    alt_fig.add_trace(
+        go.Scatter(x=df["time"], y=df["altitude"], mode="lines", name="Altitude")
+    )
 
     if has_zenith:
-        zenith_fig.add_trace(go.Scatter(
-            x=df["time"], y=df["zenith"],
-            mode="lines", name="zenith"
-        ))
+        zenith_fig.add_trace(
+            go.Scatter(x=df["time"], y=df["zenith"], mode="lines", name="zenith")
+        )
 
     vel_fig.update_layout(title="Velocity vs Time")
     alt_fig.update_layout(title="Altitude vs Time")
@@ -184,112 +183,136 @@ if selected_id is not None:
     if burnout is not None:
         idx = (df["time"] - burnout).abs().idxmin()
 
-        vel_fig.add_trace(go.Scatter(
-            x=[burnout],
-            y=[df.loc[idx, "velocity"]],
-            mode="markers",
-            marker=dict(size=12),
-            name="Burnout"
-        ))
-
-        alt_fig.add_trace(go.Scatter(
-            x=[burnout],
-            y=[df.loc[idx, "altitude"]],
-            mode="markers",
-            marker=dict(size=12),
-            name="Burnout"
-        ))
-        
-        if has_zenith:
-            zenith_fig.add_trace(go.Scatter(
+        vel_fig.add_trace(
+            go.Scatter(
                 x=[burnout],
-                y=[df.loc[idx, "zenith"]],
+                y=[df.loc[idx, "velocity"]],
                 mode="markers",
                 marker=dict(size=12),
-                name="Burnout"
-            ))
-        
+                name="Burnout",
+            )
+        )
+
+        alt_fig.add_trace(
+            go.Scatter(
+                x=[burnout],
+                y=[df.loc[idx, "altitude"]],
+                mode="markers",
+                marker=dict(size=12),
+                name="Burnout",
+            )
+        )
+
+        if has_zenith:
+            zenith_fig.add_trace(
+                go.Scatter(
+                    x=[burnout],
+                    y=[df.loc[idx, "zenith"]],
+                    mode="markers",
+                    marker=dict(size=12),
+                    name="Burnout",
+                )
+            )
+
     else:
         st.warning("Burnout time could not be determined from acceleration data.")
 
     # Apogee marker
     apogee_time = df.loc[apogee_idx, "time"]
 
-    vel_fig.add_trace(go.Scatter(
-        x=[apogee_time],
-        y=[df.loc[apogee_idx, "velocity"]],
-        mode="markers",
-        marker=dict(size=12),
-        name="Apogee"
-    ))
-
-    alt_fig.add_trace(go.Scatter(
-        x=[apogee_time],
-        y=[apogee],
-        mode="markers",
-        marker=dict(size=12),
-        name="Apogee"
-    ))
-
-    if has_zenith:
-        zenith_fig.add_trace(go.Scatter(
+    vel_fig.add_trace(
+        go.Scatter(
             x=[apogee_time],
-            y=[df.loc[apogee_idx, "zenith"]],
+            y=[df.loc[apogee_idx, "velocity"]],
             mode="markers",
             marker=dict(size=12),
-        name="Apogee"
-        ))
+            name="Apogee",
+        )
+    )
+
+    alt_fig.add_trace(
+        go.Scatter(
+            x=[apogee_time],
+            y=[apogee],
+            mode="markers",
+            marker=dict(size=12),
+            name="Apogee",
+        )
+    )
+
+    if has_zenith:
+        zenith_fig.add_trace(
+            go.Scatter(
+                x=[apogee_time],
+                y=[df.loc[apogee_idx, "zenith"]],
+                mode="markers",
+                marker=dict(size=12),
+                name="Apogee",
+            )
+        )
 
     # Parachute marker
     if parachute is not None:
         idx = (df["time"] - parachute).abs().idxmin()
 
-        vel_fig.add_trace(go.Scatter(
-            x=[parachute],
-            y=[df.loc[idx, "velocity"]],
-            mode="markers",
-            marker=dict(size=12),
-            name="Parachute"
-        ))
-
-        alt_fig.add_trace(go.Scatter(
-            x=[parachute],
-            y=[df.loc[idx, "altitude"]],
-            mode="markers",
-            marker=dict(size=12),
-            name="Parachute"
-        ))
-        
-        if has_zenith:
-            zenith_fig.add_trace(go.Scatter(
+        vel_fig.add_trace(
+            go.Scatter(
                 x=[parachute],
-                y=[df.loc[idx, "zenith"]],
+                y=[df.loc[idx, "velocity"]],
                 mode="markers",
                 marker=dict(size=12),
-                name="Parachute"
-            ))
+                name="Parachute",
+            )
+        )
+
+        alt_fig.add_trace(
+            go.Scatter(
+                x=[parachute],
+                y=[df.loc[idx, "altitude"]],
+                mode="markers",
+                marker=dict(size=12),
+                name="Parachute",
+            )
+        )
+
+        if has_zenith:
+            zenith_fig.add_trace(
+                go.Scatter(
+                    x=[parachute],
+                    y=[df.loc[idx, "zenith"]],
+                    mode="markers",
+                    marker=dict(size=12),
+                    name="Parachute",
+                )
+            )
     else:
-        st.warning("Parachute deployment time could not be determined from acceleration data.")
+        st.warning(
+            "Parachute deployment time could not be determined from acceleration data."
+        )
 
     # Landing marker
     if land_idx is not None:
         land_time = df.iloc[land_idx]["time"]
 
-        vel_fig.add_trace(go.Scatter(
-            x=[land_time],
-            y=[0],
-            mode="markers",
-            marker=dict(size=12),
-            name="Landing"
-        ))
+        vel_fig.add_trace(
+            go.Scatter(
+                x=[land_time],
+                y=[0],
+                mode="markers",
+                marker=dict(size=12),
+                name="Landing",
+            )
+        )
 
-        alt_fig.add_trace(go.Scatter(
-            x=[land_time],
-            y=[0],
-            mode="markers",
-            marker=dict(size=12),
-            name="Landing"
-        ))
+        alt_fig.add_trace(
+            go.Scatter(
+                x=[land_time],
+                y=[0],
+                mode="markers",
+                marker=dict(size=12),
+                name="Landing",
+            )
+        )
     else:
         st.warning("Landing time could not be determined from velocity data.")
 
@@ -316,22 +339,16 @@ if selected_id is not None:
     if "render_df" not in st.session_state:
         st.session_state.render_df = None
 
-
     def build_render_df(df, target_frames=TARGET_FRAMES):
         if len(df) <= target_frames:
             return df.reset_index(drop=True)
 
-        indices = np.linspace(
-            0,
-            len(df) - 1,
-            target_frames,
-            dtype=int
-        )
+        indices = np.linspace(0, len(df) - 1, target_frames, dtype=int)
 
         return df.iloc[indices].reset_index(drop=True)
 
+        # Rebuild cache when flight changes
 
-    # Rebuild cache when flight changes
     if st.session_state.cached_flight != selected_id:
 
         st.session_state.cached_flight = selected_id
@@ -363,29 +380,14 @@ if selected_id is not None:
 
             progress.progress(
                 (i + 1) / len(render_df),
-                text=f"Rendering frame {i + 1}/{len(render_df)}"
+                text=f"Rendering frame {i + 1}/{len(render_df)}",
             )
 
         progress.empty()
 
-        #debug start
-        st.write(st.session_state.frame_cache[0].shape)
-
-        shapes = {frame.shape for frame in st.session_state.frame_cache}
-        st.write(len(shapes))
-        st.write(shapes)
-        #debug end
-
-
-        st.session_state.video_path = create_mp4(
-            st.session_state.frame_cache,
-            f"cache/flight_{selected_id}.mp4",
-            fps=30
-        )
-
-        if os.path.exists(st.session_state.video_path):
-            st.write(os.path.getsize(st.session_state.video_path))
-
+    st.session_state.video_path = create_mp4(
+        st.session_state.frame_cache, f"cache/flight_{selected_id}.mp4", fps=30
+    )
 
     render_df = st.session_state.render_df
     frame_cache = st.session_state.frame_cache
@@ -398,12 +400,10 @@ if selected_id is not None:
         with open(video_path, "rb") as f:
             video_bytes = f.read()
 
-        st.write("bytes:", len(video_bytes))
         st.video(video_bytes)
 
-
     with tab2:
-        
+
         frame = st.slider(
             "Frame",
             min_value=0,
@@ -425,9 +425,9 @@ if selected_id is not None:
 
         if not pd.isna(row.get("azimuth", None)):
             st.metric("Azimuth", f"{row['azimuth']:.1f}°")
-        
-    
-else:  
+
+
+else:
     st.info("No flight selected yet. Upload a CSV to see telemetry.")
 
 
