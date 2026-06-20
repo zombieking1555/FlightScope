@@ -401,6 +401,12 @@ if selected_id is not None:
             video_bytes = f.read()
 
         st.video(video_bytes)
+        st.download_button(
+            "Download Flight Render as MP4",
+            video_bytes,
+            file_name=f"flight_{selected_id}.mp4",
+            mime="video/mp4"
+        )
 
     with tab2:
 

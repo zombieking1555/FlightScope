@@ -39,6 +39,18 @@ def detect_units(df: pd.DataFrame):
             if "(g)" in col_lower:
                 conversions[col] = ("g", 9.806)
 
+        # ZENITH
+        if "zenith" in col_lower:
+            if "(arcmin)" in col_lower:
+                conversions[col] = ("arcmin", 0.0166)# arcmin > °
+            if "(rad)" in col_lower:
+                conversions[col] = ("rad", 57.2957) # rad > °
+        #AZIMUTH
+        if "azimuth" in col_lower:
+            if "(arcmin)" in col_lower:
+                conversions[col] = ("arcmin", 0.0166)# arcmin > °
+            if "(rad)" in col_lower:
+                conversions[col] = ("rad", 57.2957) # rad > °
     return conversions
 
 

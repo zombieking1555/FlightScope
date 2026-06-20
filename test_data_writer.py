@@ -126,11 +126,29 @@ def generate_flight(seed, apogee_target):
     # smooth acceleration
     acc_sm = pd.Series(acc_arr).rolling(window=5, center=True, min_periods=1).mean().values
 
+    zenith = np.full_like(t_arr, 90.0, dtype=float)
+    azimuth = np.zeros_like(t_arr, dtype=float)
+
+    liftoff_idx = np.argmax(vel_arr > 0.1)
+    if vel_arr[liftoff_idx] <= 0.1:
+        liftoff_idx = 0
+
+    azimuth[liftoff_idx:] = 90.0
+    zenith[liftoff_idx:] = np.clip(90.0 - np.maximum(vel_arr[liftoff_idx:], 0.0) * 0.035, 75.0, 90.0)
+
+    landing_idx = np.where(alt_arr == 0.0)[0]
+    if len(landing_idx) > 0:
+        landing_idx = int(landing_idx[-1])
+        zenith[landing_idx:] = 90.0
+        azimuth[landing_idx:] = 0.0
+
     return pd.DataFrame({
         "time": t_arr,
         "altitude": alt_arr,
         "velocity": vel_arr,
         "acceleration": acc_sm,
+        "zenith": zenith,
+        "azimuth": azimuth,
     })
 
 
