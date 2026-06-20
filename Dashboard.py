@@ -368,14 +368,20 @@ if selected_id is not None:
 
         progress.empty()
 
+        #debug start
+        st.write(st.session_state.frame_cache[0].shape)
+
+        shapes = {frame.shape for frame in st.session_state.frame_cache}
+        st.write(len(shapes))
+        st.write(shapes)
+        #debug end
+
+
         st.session_state.video_path = create_mp4(
             st.session_state.frame_cache,
             f"cache/flight_{selected_id}.mp4",
             fps=30
         )
-
-        st.write(st.session_state.video_path)
-        st.write(os.path.exists(st.session_state.video_path))
 
         if os.path.exists(st.session_state.video_path):
             st.write(os.path.getsize(st.session_state.video_path))
@@ -387,10 +393,17 @@ if selected_id is not None:
     tab1, tab2 = st.tabs(["Video", "Frame Viewer"])
 
     with tab1:
-        st.video(st.session_state.video_path)
+        video_path = st.session_state.video_path
+
+        with open(video_path, "rb") as f:
+            video_bytes = f.read()
+
+        st.write("bytes:", len(video_bytes))
+        st.video(video_bytes)
+
 
     with tab2:
-    
+        
         frame = st.slider(
             "Frame",
             min_value=0,
