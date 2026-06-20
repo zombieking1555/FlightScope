@@ -358,7 +358,7 @@ if selected_id is not None:
         render_df = st.session_state.render_df
 
         progress = st.progress(0, text="Rendering flight frames...")
-
+        warning_message = None
         for i, (_, row) in enumerate(render_df.iterrows()):
 
             zenith = row.get("zenith", None)
@@ -369,6 +369,7 @@ if selected_id is not None:
                 img = render_frame_alt_only(
                     altitude=altitude if not pd.isna(altitude) else 0
                 )
+                warning_message = "Zenith or Azimuth not detected in flight data, renders reflect altitude data only."
             else:
                 img = render_frame(
                     zenith=zenith,
@@ -382,7 +383,10 @@ if selected_id is not None:
                 (i + 1) / len(render_df),
                 text=f"Rendering frame {i + 1}/{len(render_df)}",
             )
-
+        
+        if warning_message is not None: 
+            st.warning(warning_message)
+            
         progress.empty()
 
         st.session_state.video_path = create_mp4(

@@ -40,6 +40,10 @@ def normalize_columns(df):
         "Yaw rate (r/s)": "yaw_rate",
         "Vertical orientation (zenith) (°)": "zenith",
         "Lateral orientation (azimuth) (°)": "azimuth",
+        "Vertical orientation (zenith) (arcmin)": "zenith",
+        "Lateral orientation (azimuth) (arcmin)": "azimuth",
+        "Vertical orientation (zenith) (rad)": "zenith",
+        "Lateral orientation (azimuth) (rad)": "azimuth",
     })
 
     return df
