@@ -44,6 +44,38 @@ CREATE TABLE IF NOT EXISTS telemetry (
 conn.commit()
 
 # ----------------------------
+# SIDEBAR ADMIN
+# ----------------------------
+st.sidebar.subheader("Admin")
+
+if "confirm_clear" not in st.session_state:
+    st.session_state.confirm_clear = False
+
+if st.sidebar.button("🗑️ Clear Database"):
+    st.session_state.confirm_clear = True
+
+if st.session_state.confirm_clear:
+
+    st.sidebar.warning("Are you sure? This will delete ALL data.")
+
+    col1, col2 = st.sidebar.columns(2)
+
+    with col1:
+        if st.button("✓ Confirm"):
+            cursor.execute("DELETE FROM telemetry")
+            cursor.execute("DELETE FROM flights")
+            conn.commit()
+
+            st.session_state.confirm_clear = False
+            st.success("Database cleared!")
+            st.rerun()
+
+    with col2:
+        if st.button("✗ Cancel"):
+            st.session_state.confirm_clear = False
+            st.rerun()
+
+# ----------------------------
 # LOAD FLIGHT LIST
 # ----------------------------
 flights = pd.read_sql_query("SELECT id, filename FROM flights", conn)
@@ -324,9 +356,6 @@ if selected_id is not None:
     # ----------------------------
     # ROCKET RENDER FRAME
     # ----------------------------
-    # ----------------------------
-    # ROCKET RENDER FRAME
-    # ----------------------------
 
     TARGET_FRAMES = 500
 
@@ -439,36 +468,3 @@ if selected_id is not None:
 
 else:
     st.info("No flight selected yet. Upload a CSV to see telemetry.")
-
-
-# ----------------------------
-# SIDEBAR ADMIN
-# ----------------------------
-st.sidebar.subheader("Admin")
-
-if "confirm_clear" not in st.session_state:
-    st.session_state.confirm_clear = False
-
-if st.sidebar.button("🗑️ Clear Database"):
-    st.session_state.confirm_clear = True
-
-if st.session_state.confirm_clear:
-
-    st.sidebar.warning("Are you sure? This will delete ALL data.")
-
-    col1, col2 = st.sidebar.columns(2)
-
-    with col1:
-        if st.button("✓ Confirm"):
-            cursor.execute("DELETE FROM telemetry")
-            cursor.execute("DELETE FROM flights")
-            conn.commit()
-
-            st.session_state.confirm_clear = False
-            st.success("Database cleared!")
-            st.rerun()
-
-    with col2:
-        if st.button("✗ Cancel"):
-            st.session_state.confirm_clear = False
-            st.rerun()
