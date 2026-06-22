@@ -242,6 +242,9 @@ if primary_id is not None and secondary_id is not None:
     vel_fig = go.Figure()
     alt_fig = go.Figure()
     zenith_fig = go.Figure()
+    event_list = []
+    primary_times = []
+    secondary_times = []
     df_list = [df_primary, df_secondary]
     has_zenith_list = [has_zenith_primary, has_zenith_secondary]
 
@@ -265,6 +268,7 @@ if primary_id is not None and secondary_id is not None:
 
     # Burnout marker
     if burnout_primary is not None:
+        primary_times.append(burnout_primary)
         idx = (df_primary["time"] - burnout_primary).abs().idxmin()
 
         vel_fig.add_trace(
@@ -302,6 +306,7 @@ if primary_id is not None and secondary_id is not None:
         st.warning("Primary burnout time could not be determined from acceleration data.")
 
     if burnout_secondary is not None:
+        secondary_times.append(burnout_secondary)
         idx = (df_secondary["time"] - burnout_secondary).abs().idxmin()
 
         vel_fig.add_trace(
@@ -340,6 +345,7 @@ if primary_id is not None and secondary_id is not None:
 
     # Apogee marker
     apogee_time = df_primary.loc[apogee_idx_primary, "time"]
+    primary_times.append(apogee_time)
 
     vel_fig.add_trace(
         go.Scatter(
@@ -373,6 +379,7 @@ if primary_id is not None and secondary_id is not None:
         )
     
     apogee_time = df_secondary.loc[apogee_idx_secondary, "time"]
+    secondary_times.append(apogee_time)
 
     vel_fig.add_trace(
         go.Scatter(
@@ -407,6 +414,7 @@ if primary_id is not None and secondary_id is not None:
 
     # Parachute marker
     if parachute_primary is not None:
+        primary_times.append(parachute_primary)
         idx = (df_primary["time"] - parachute_primary).abs().idxmin()
 
         vel_fig.add_trace(
@@ -445,6 +453,7 @@ if primary_id is not None and secondary_id is not None:
         )
 
     if parachute_secondary is not None:
+        secondary_times.append(parachute_secondary)
         idx = (df_secondary["time"] - parachute_secondary).abs().idxmin()
 
         vel_fig.add_trace(
@@ -485,6 +494,7 @@ if primary_id is not None and secondary_id is not None:
     # Landing marker
     if land_idx_primary is not None:
         land_time = df_primary.iloc[land_idx_primary]["time"]
+        primary_times.append(land_time)
 
         vel_fig.add_trace(
             go.Scatter(
@@ -510,6 +520,7 @@ if primary_id is not None and secondary_id is not None:
     
     if land_idx_secondary is not None:
         land_time = df_secondary.iloc[land_idx_secondary]["time"]
+        secondary_times.append(land_time)
 
         vel_fig.add_trace(
             go.Scatter(
@@ -535,6 +546,21 @@ if primary_id is not None and secondary_id is not None:
 
     st.plotly_chart(alt_fig)
     st.plotly_chart(vel_fig)
+    while len(primary_times) < 4:
+        primary_times.append("-")
+    while len(secondary_times) < 4:
+        secondary_times.append("-")
+
+    events = ["Burnout", "Apogee", "Parachute", "Landing"]
+    data = {
+        "Event": events,
+        "Primary Flight Timestamps (s)": primary_times,
+        "Secondary Flight Timestamps (s)": secondary_times,
+    }
+
     has_zenith = has_zenith_primary or has_zenith_secondary
     if has_zenith:
         st.plotly_chart(zenith_fig)
+
+    st.subheader("Comparison Summary")
+    st.table(pd.DataFrame(data))
