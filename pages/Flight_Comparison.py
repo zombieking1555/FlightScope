@@ -99,7 +99,7 @@ if primary_id is not None and secondary_id is not None:
         ORDER BY time
         """,
         conn,
-        params=(primary_id,),
+        params=(secondary_id,),
     )
 
     if df_primary.empty:
@@ -153,192 +153,338 @@ if primary_id is not None and secondary_id is not None:
     rel_candidates_primary = df_primary.index[df_primary["acceleration"] > threshold_primary].tolist()
     launch_idx_primary = int(rel_candidates_primary[0]) if rel_candidates_primary else 0
     rel_candidates_secondary = df_secondary.index[df_secondary["acceleration"] > threshold_secondary].tolist()
-    launch_idx_secondary = int(rel_candidates_secondary[0]) if rel_candidates_secondary else 
-    
-    launch_idx_list = [{launch_idx_primary, launch_idx_secondary}]
+    launch_idx_secondary = int(rel_candidates_secondary[0]) if rel_candidates_secondary else 0
 
-    
-    land_time_list = []
-    land_idx_list = []
-    # progress ended here
+    #PRIMARY RUN
     # make mask a Series (aligned with dataframe) to avoid type/alignment issues
-    mask = pd.Series(df.index > launch_idx, index=df.index) & (
-        df["velocity"].abs() < 0.5
+    mask = pd.Series(df_primary.index > launch_idx_primary, index=df_primary.index) & (
+        df_primary["velocity"].abs() < 0.5
     )
     sustained = mask.rolling(window=50).sum() >= 50
 
-    land_candidates = sustained[sustained].index
+    land_candidates_primary = sustained[sustained].index
 
-    if len(land_candidates) == 0:
-        land_time = float(df["time"].iloc[-1])
-        land_idx = None
+    if len(land_candidates_primary) == 0:
+        land_time_primary = float(df_primary["time"].iloc[-1])
+        land_idx_primary = None
     else:
-        land_idx = int(land_candidates[0]) - 49
-        land_idx = max(0, land_idx)
-        land_time = float(df.iloc[land_idx]["time"])
+        land_idx_primary = int(land_candidates_primary[0]) - 49
+        land_idx_primary = max(0, land_idx_primary)
+        land_time_primary = float(df_primary.iloc[land_idx_primary]["time"])
 
-    df = df[df["time"] <= land_time].reset_index(drop=True)
+    df_primary = df_primary[df_primary["time"] <= land_time_primary].reset_index(drop=True)
 
-    st.write(df.head())
+    
+
+    #SECONDARY RUN
+    mask = pd.Series(df_secondary.index > launch_idx_secondary, index=df_secondary.index) & (
+        df_secondary["velocity"].abs() < 0.5
+    )
+    sustained = mask.rolling(window=50).sum() >= 50
+
+    land_candidates_secondary = sustained[sustained].index
+
+    if len(land_candidates_secondary) == 0:
+        land_time_secondary = float(df_secondary["time"].iloc[-1])
+        land_idx_secondary = None
+    else:
+        land_idx_secondary = int(land_candidates_secondary[0]) - 49
+        land_idx_secondary = max(0, land_idx_secondary)
+        land_time_secondary = float(df_secondary.iloc[land_idx_secondary]["time"])
+
+    df_secondary = df_secondary[df_secondary["time"] <= land_time_secondary].reset_index(drop=True)
+
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.write(df_primary.head())
+    with col2:
+        st.write(df_secondary.head())
 
     # ----------------------------
     # EVENT DETECTION
     # ----------------------------
-    burnout = None
-    parachute = None
-    apogee_idx = df["altitude"].idxmax()
-    apogee = df["altitude"].max()
+    burnout_primary = None
+    burnout_secondary = None
+    parachute_primary = None
+    parachute_secondary = None
+    apogee_idx_primary = df_primary["altitude"].idxmax()
+    apogee_idx_secondary = df_secondary["altitude"].idxmax()
+    apogee_primary = df_primary["altitude"].max()
+    apogee_secondary = df_secondary["altitude"].max()
 
-    accel = np.asarray(df["acceleration"].values, dtype=float)
-    jerk = np.diff(accel)
+    accel_primary = np.asarray(df_primary["acceleration"].values, dtype=float)
+    accel_secondary = np.asarray(df_secondary["acceleration"].values, dtype=float)
+    jerk_primary = np.diff(accel_primary)
+    jerk_secondary = np.diff(accel_secondary)
 
-    burnout_idx = np.argmin(jerk)
-    if burnout_idx > 0 and jerk[burnout_idx] < -0.5:
-        burnout = df["time"].iloc[burnout_idx]
+    burnout_idx_primary = np.argmin(jerk_primary)
+    if burnout_idx_primary > 0 and jerk_primary[burnout_idx_primary] < -0.5:
+        burnout_primary = df_primary["time"].iloc[burnout_idx_primary]
 
-    parachute_idx = np.argmax(jerk)
-    if parachute_idx > 0 and jerk[parachute_idx] > 0.5:
-        parachute = df["time"].iloc[parachute_idx]
+    burnout_idx_secondary = np.argmin(jerk_secondary)
+    if burnout_idx_secondary > 0 and jerk_secondary[burnout_idx_secondary] < -0.5:
+        burnout_secondary = df_secondary["time"].iloc[burnout_idx_secondary]
 
-    has_zenith = "zenith" in df.columns and not df["zenith"].isna().all()
+    parachute_idx_primary = np.argmax(jerk_primary)
+    if parachute_idx_primary > 0 and jerk_primary[parachute_idx_primary] > 0.5:
+        parachute_primary = df_primary["time"].iloc[parachute_idx_primary]
+    
+    parachute_idx_secondary = np.argmax(jerk_secondary)
+    if parachute_idx_secondary > 0 and jerk_secondary[parachute_idx_secondary] > 0.5:
+        parachute_secondary = df_secondary["time"].iloc[parachute_idx_secondary]
+
+    has_zenith_primary = "zenith" in df_primary.columns and not df_primary["zenith"].isna().all()
+    has_zenith_secondary = "zenith" in df_secondary.columns and not df_secondary["zenith"].isna().all()
     # ----------------------------
     # PLOTTING
     # ----------------------------
     vel_fig = go.Figure()
     alt_fig = go.Figure()
     zenith_fig = go.Figure()
+    df_list = [df_primary, df_secondary]
+    has_zenith_list = [has_zenith_primary, has_zenith_secondary]
 
-    vel_fig.add_trace(
-        go.Scatter(x=df["time"], y=df["velocity"], mode="lines", name="Velocity")
-    )
-
-    alt_fig.add_trace(
-        go.Scatter(x=df["time"], y=df["altitude"], mode="lines", name="Altitude")
-    )
-
-    if has_zenith:
-        zenith_fig.add_trace(
-            go.Scatter(x=df["time"], y=df["zenith"], mode="lines", name="zenith")
+    for i in range(2):
+        vel_fig.add_trace(
+            go.Scatter(x=df_list[i]["time"], y=df_list[i]["velocity"], mode="lines", name="Velocity")
         )
+
+        alt_fig.add_trace(
+            go.Scatter(x=df_list[i]["time"], y=df_list[i]["altitude"], mode="lines", name="Altitude")
+        )
+
+        if has_zenith_list[i]:
+            zenith_fig.add_trace(
+                go.Scatter(x=df_list[i]["time"], y=df_list[i]["zenith"], mode="lines", name="zenith")
+            )
 
     vel_fig.update_layout(title="Velocity vs Time")
     alt_fig.update_layout(title="Altitude vs Time")
-    zenith_fig.update_layout(title="zenith vs Time")
+    zenith_fig.update_layout(title="Zenith vs Time")
 
     # Burnout marker
-    if burnout is not None:
-        idx = (df["time"] - burnout).abs().idxmin()
+    if burnout_primary is not None:
+        idx = (df_primary["time"] - burnout_primary).abs().idxmin()
 
         vel_fig.add_trace(
             go.Scatter(
-                x=[burnout],
-                y=[df.loc[idx, "velocity"]],
+                x=[burnout_primary],
+                y=[df_primary.loc[idx, "velocity"]],
                 mode="markers",
                 marker=dict(size=12),
-                name="Burnout",
+                name="Burnout (primary)",
             )
         )
 
         alt_fig.add_trace(
             go.Scatter(
-                x=[burnout],
-                y=[df.loc[idx, "altitude"]],
+                x=[burnout_primary],
+                y=[df_primary.loc[idx, "altitude"]],
                 mode="markers",
                 marker=dict(size=12),
-                name="Burnout",
+                name="Burnout (primary)",
             )
         )
 
-        if has_zenith:
+        if has_zenith_primary:
             zenith_fig.add_trace(
                 go.Scatter(
-                    x=[burnout],
-                    y=[df.loc[idx, "zenith"]],
+                    x=[burnout_primary],
+                    y=[df_primary.loc[idx, "zenith"]],
                     mode="markers",
                     marker=dict(size=12),
-                    name="Burnout",
+                    name="Burnout (primary)",
                 )
             )
 
     else:
-        st.warning("Burnout time could not be determined from acceleration data.")
+        st.warning("Primary burnout time could not be determined from acceleration data.")
+
+    if burnout_secondary is not None:
+        idx = (df_secondary["time"] - burnout_secondary).abs().idxmin()
+
+        vel_fig.add_trace(
+            go.Scatter(
+                x=[burnout_secondary],
+                y=[df_secondary.loc[idx, "velocity"]],
+                mode="markers",
+                marker=dict(size=12),
+                name="Burnout (secondary)",
+            )
+        )
+
+        alt_fig.add_trace(
+            go.Scatter(
+                x=[burnout_secondary],
+                y=[df_secondary.loc[idx, "altitude"]],
+                mode="markers",
+                marker=dict(size=12),
+                name="Burnout (secondary)",
+            )
+        )
+
+        if has_zenith_secondary:
+            zenith_fig.add_trace(
+                go.Scatter(
+                    x=[burnout_secondary],
+                    y=[df_secondary.loc[idx, "zenith"]],
+                    mode="markers",
+                    marker=dict(size=12),
+                    name="Burnout (secondary)",
+                )
+            )
+
+    else:
+        st.warning("Secondary burnout time could not be determined from acceleration data.")
 
     # Apogee marker
-    apogee_time = df.loc[apogee_idx, "time"]
+    apogee_time = df_primary.loc[apogee_idx_primary, "time"]
 
     vel_fig.add_trace(
         go.Scatter(
             x=[apogee_time],
-            y=[df.loc[apogee_idx, "velocity"]],
+            y=[df_primary.loc[apogee_idx_primary, "velocity"]],
             mode="markers",
             marker=dict(size=12),
-            name="Apogee",
+            name="Apogee (primary)",
         )
     )
 
     alt_fig.add_trace(
         go.Scatter(
             x=[apogee_time],
-            y=[apogee],
+            y=[apogee_primary],
             mode="markers",
             marker=dict(size=12),
-            name="Apogee",
+            name="Apogee (primary)",
         )
     )
 
-    if has_zenith:
+    if has_zenith_primary:
         zenith_fig.add_trace(
             go.Scatter(
                 x=[apogee_time],
-                y=[df.loc[apogee_idx, "zenith"]],
+                y=[df_primary.loc[apogee_idx_primary, "zenith"]],
                 mode="markers",
                 marker=dict(size=12),
-                name="Apogee",
+                name="Apogee (primary)",
+            )
+        )
+    
+    apogee_time = df_secondary.loc[apogee_idx_secondary, "time"]
+
+    vel_fig.add_trace(
+        go.Scatter(
+            x=[apogee_time],
+            y=[df_secondary.loc[apogee_idx_secondary, "velocity"]],
+            mode="markers",
+            marker=dict(size=12),
+            name="Apogee (secondary)",
+        )
+    )
+
+    alt_fig.add_trace(
+        go.Scatter(
+            x=[apogee_time],
+            y=[apogee_secondary],
+            mode="markers",
+            marker=dict(size=12),
+            name="Apogee (secondary)",
+        )
+    )
+
+    if has_zenith_secondary:
+        zenith_fig.add_trace(
+            go.Scatter(
+                x=[apogee_time],
+                y=[df_secondary.loc[apogee_idx_secondary, "zenith"]],
+                mode="markers",
+                marker=dict(size=12),
+                name="Apogee (secondary)",
             )
         )
 
     # Parachute marker
-    if parachute is not None:
-        idx = (df["time"] - parachute).abs().idxmin()
+    if parachute_primary is not None:
+        idx = (df_primary["time"] - parachute_primary).abs().idxmin()
 
         vel_fig.add_trace(
             go.Scatter(
-                x=[parachute],
-                y=[df.loc[idx, "velocity"]],
+                x=[parachute_primary],
+                y=[df_primary.loc[idx, "velocity"]],
                 mode="markers",
                 marker=dict(size=12),
-                name="Parachute",
+                name="Parachute (primary)",
             )
         )
 
         alt_fig.add_trace(
             go.Scatter(
-                x=[parachute],
-                y=[df.loc[idx, "altitude"]],
+                x=[parachute_primary],
+                y=[df_primary.loc[idx, "altitude"]],
                 mode="markers",
                 marker=dict(size=12),
-                name="Parachute",
+                name="Parachute (primary)",
             )
         )
 
-        if has_zenith:
+        if has_zenith_primary:
             zenith_fig.add_trace(
                 go.Scatter(
-                    x=[parachute],
-                    y=[df.loc[idx, "zenith"]],
+                    x=[parachute_primary],
+                    y=[df_primary.loc[idx, "zenith"]],
                     mode="markers",
                     marker=dict(size=12),
-                    name="Parachute",
+                    name="Parachute (primary)",
                 )
             )
     else:
         st.warning(
-            "Parachute deployment time could not be determined from acceleration data."
+            "Primary parachute deployment time could not be determined from acceleration data."
+        )
+
+    if parachute_secondary is not None:
+        idx = (df_secondary["time"] - parachute_secondary).abs().idxmin()
+
+        vel_fig.add_trace(
+            go.Scatter(
+                x=[parachute_secondary],
+                y=[df_secondary.loc[idx, "velocity"]],
+                mode="markers",
+                marker=dict(size=12),
+                name="Parachute (secondary)",
+            )
+        )
+
+        alt_fig.add_trace(
+            go.Scatter(
+                x=[parachute_secondary],
+                y=[df_secondary.loc[idx, "altitude"]],
+                mode="markers",
+                marker=dict(size=12),
+                name="Parachute (secondary)",
+            )
+        )
+
+        if has_zenith_secondary:
+            zenith_fig.add_trace(
+                go.Scatter(
+                    x=[parachute_secondary],
+                    y=[df_secondary.loc[idx, "zenith"]],
+                    mode="markers",
+                    marker=dict(size=12),
+                    name="Parachute (secondary)",
+                )
+            )
+    else:
+        st.warning(
+            "Secondary parachute deployment time could not be determined from acceleration data."
         )
 
     # Landing marker
-    if land_idx is not None:
-        land_time = df.iloc[land_idx]["time"]
+    if land_idx_primary is not None:
+        land_time = df_primary.iloc[land_idx_primary]["time"]
 
         vel_fig.add_trace(
             go.Scatter(
@@ -346,7 +492,7 @@ if primary_id is not None and secondary_id is not None:
                 y=[0],
                 mode="markers",
                 marker=dict(size=12),
-                name="Landing",
+                name="Landing (primary)",
             )
         )
 
@@ -356,13 +502,39 @@ if primary_id is not None and secondary_id is not None:
                 y=[0],
                 mode="markers",
                 marker=dict(size=12),
-                name="Landing",
+                name="Landing (primary)",
             )
         )
     else:
-        st.warning("Landing time could not be determined from velocity data.")
+        st.warning("Primary landing time could not be determined from velocity data.")
+    
+    if land_idx_secondary is not None:
+        land_time = df_secondary.iloc[land_idx_secondary]["time"]
+
+        vel_fig.add_trace(
+            go.Scatter(
+                x=[land_time],
+                y=[0],
+                mode="markers",
+                marker=dict(size=12),
+                name="Landing (secondary)",
+            )
+        )
+
+        alt_fig.add_trace(
+            go.Scatter(
+                x=[land_time],
+                y=[0],
+                mode="markers",
+                marker=dict(size=12),
+                name="Landing (secondary)",
+            )
+        )
+    else:
+        st.warning("Secondary landing time could not be determined from velocity data.")
 
     st.plotly_chart(alt_fig)
     st.plotly_chart(vel_fig)
+    has_zenith = has_zenith_primary or has_zenith_secondary
     if has_zenith:
         st.plotly_chart(zenith_fig)
