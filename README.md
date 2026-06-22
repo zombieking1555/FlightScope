@@ -13,6 +13,7 @@ FlightScope is a Python application designed to analyze and visualize model rock
 
   * Launch
   * Apogee
+  * Parachute Deploy
   * Landing
 * Analysis of important flight metrics:
 
@@ -59,14 +60,27 @@ Then open the local URL shown in your terminal to access the dashboard.
 ```text
 FlightScope/
 │
-├── Dashboard.py         # Main dashboard and flight visualization
-├── Database_Manager.py  # Flight database management page
+└─┬── pages                # Contains main app pages
+  ├── Database_Manager.py  # Flight database management page
+  ├── Flight_Comparison.py # Compare two flights using this page
+┌─┴── Upload_Flight.py     # Page used for uploading flights into the database
+│
+└─┬── test_data            # (generated with `python test_data_writer.py`) Contains generated flights
+  ├── flight_1.csv         # 
+  ├── flight_2.csv         # 
+┌─┴── flight_3.csv         # 
+│
 ├── create_db.py         # Generates empty local database on app startup
+├── Dashboard.py         # Main dashboard and flight visualization
+├── data_import.py       # Data sanitizer for imported flights
+├── db.py                # Creates local database on first startup
 ├── flights.db           # Local database
-├── test_data_writer.py  # Simulated flight generator
-├── test_data            # Houses flight generations from `test_data_writer.py`
+├── LICENSE.md           # 
+├── mp4_tool.py          # Container for video-generation-related functions
+├── README.md            # 
 ├── requirements.txt     # Python dependencies
-└── README.md
+├── rocket_render.txt    # Container for rocket-frame-rendering-related functions
+└── test_data_writer.py  # Simulated flight generator
 ```
 
 ## Data Format
@@ -74,9 +88,11 @@ FlightScope/
 FlightScope supports CSV flight logs containing telemetry such as:
 
 * Time (s)
-* Altitude (m)
-* Velocity (m/s)
-* Acceleration (m/s^2)
+* Altitude (m, ft)
+* Velocity (m/s, ft/s)
+* Acceleration (m/s^2, ft/s^2)
+* Zenith (deg, rad, arcmin)
+* Azimuth (deg, rad, arcmin)
 
 The application automatically converts and cleans supported flight log formats before analysis.
 
