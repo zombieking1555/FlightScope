@@ -70,17 +70,17 @@ FlightScope/
   ├── flight_2.csv         # 
 ┌─┴── flight_3.csv         # 
 │
-├── create_db.py         # Generates empty local database on app startup
-├── Dashboard.py         # Main dashboard and flight visualization
-├── data_import.py       # Data sanitizer for imported flights
-├── db.py                # Creates local database on first startup
-├── flights.db           # Local database
-├── LICENSE.md           # 
-├── mp4_tool.py          # Container for video-generation-related functions
-├── README.md            # 
-├── requirements.txt     # Python dependencies
-├── rocket_render.txt    # Container for rocket-frame-rendering-related functions
-└── test_data_writer.py  # Simulated flight generator
+├── create_db.py           # Generates empty local database on app startup
+├── Dashboard.py           # Main dashboard and flight visualization
+├── data_import.py         # Data sanitizer for imported flights
+├── db.py                  # Creates local database on first startup
+├── flights.db             # Local database
+├── LICENSE.md             # 
+├── mp4_tool.py            # Container for video-generation-related functions
+├── README.md              # 
+├── requirements.txt       # Python dependencies
+├── rocket_render.txt      # Container for rocket-frame-rendering-related functions
+└── test_data_writer.py    # Simulated flight generator
 ```
 
 ## Data Format
